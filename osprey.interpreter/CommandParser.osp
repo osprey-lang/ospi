@@ -1,0 +1,228 @@
+use namespace aves;
+use namespace osprey.compiler;
+use namespace osprey.compiler.parser;
+use namespace osprey.compiler.syntax;
+
+namespace osprey.interpreter;
+
+public inheritable CommandParser is Parser
+{
+	/// Summary: Creates a new {CommandParser} for the specified file, with the
+	///          specified flags and error manager.
+	/// Param file: The {SourceFile} or {Lexer} that is to be parsed.
+	/// Param flags: {ParseFlags} that determine how parsing is done.
+	/// Param errorManager: An {ErrorManager} that receives errors and warnings
+	///                     that occur during parsing.
+	public new(file, flags, errorManager)
+	{
+		new base(file, flags, errorManager);
+	}
+
+	/// Summary: Parses a sequence of zero or more commands. A command sequence may contain
+	///          any number of statements, followed by at most one expression. If the command
+	///          sequence ends with an expression, the value of the expression is typically
+	///          used as the result of evaluating the command sequence.
+	/// Param i: (ref) The token index to start parsing at. Upon returning, this contains
+	///          the index of the token that immediately follows the returned parse tree.
+	/// Returns: A List of commands parsed.
+	public parseCommandSequence(ref i)
+	{
+		var commands = [];
+		while not accept(i, TokenType.eof):
+			commands.add(parseCommand(ref i));
+
+		expect(i, TokenType.eof);
+
+		return commands;
+	}
+
+	/// Summary: Parses a single command. A command is a statement or an expression.
+	/// Param i: (ref) The token index to start parsing at. Upon returning, this contains
+	///          the index of the token that immediately follows the returned parse tree.
+	/// Returns: A {Statement} or {Expression} that represents the command.
+	public parseCommand(ref i)
+	{
+		var tok = lexer[i];
+		// If the first token is a statement start token, or the command begins with
+		// identifier + ':', or it begins with 'new' 'this' or 'new' 'base', then the
+		// command is unambiguously a statement.
+		if statementStartTokens.contains(tok.type) or
+			tok.match(TokenType.identifier) and accept(i + 1, TokenType.colon) or
+			tok.match(TokenType.\new) and accept(i + 1, TokenType.\this, TokenType.\base):
+			return parseStatement(ref i);
+
+		// Okay, so it's not /unambiguously/ a statement. It might still be an
+		// assignment statement, which always begins with an expression, or it
+		// might just be an expression.
+		return parseExpressionLike(ref i);
+	}
+
+	private parseExpressionLike(ref i)
+	{
+		var expr = parseExpression(ref i);
+
+		if accept(i, TokenType.semicolon):
+			return parseExpressionStatementCommand(ref i, expr);
+
+		if accept(i, TokenType.compoundAssign):
+			return parseCompoundAssignmentCommand(ref i, expr);
+
+		if accept(i, TokenType.comma):
+			return parseParallelAssignmentCommand(ref i, expr);
+
+		// If it's not an expression statement, nor a compound assignment, nor
+		// a parallel assignment, it must be a "raw" expression, which must be
+		// the last command. Hence:
+		expect(i, TokenType.eof);
+
+		return expr;
+	}
+
+	private parseExpressionStatementCommand(ref i, expr)
+	{
+		if not isStatementExpression(expr):
+			recoverableError(expr, ErrorCode.err_InvalidStatementExpression);
+
+		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
+		return new ExpressionStatement(getLocation(expr, end),
+			expr);
+	}
+
+	private parseCompoundAssignmentCommand(ref i, target)
+	{
+		// Basically copied from osprey.compiler
+		/* Syntax:
+		 *   compound-assignment-statement:
+		 *     primary-expression compound-assignment-operator expression ';'
+		 *   compound-assignment-operator: one of
+		 *     '+='  '-='   '|='   '*='   '/='   '%='  '&='
+		 *     '^='  '::='  '<<='  '>>='  '**='  '#='  '$='
+		 */
+		ensureAssignable(target);
+
+		var op = typeToBinaryOperator[lexer[i].type];
+		i += 1;
+
+		var value = parseExpression(ref i);
+
+		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
+
+		return new CompoundAssignment(getLocation(target, end),
+			target, op, value);
+	}
+
+	private parseParallelAssignmentCommand(ref i, firstTarget)
+	{
+		// Basically copied from osprey.compiler
+		/* Syntax:
+		 *   parallel-assignment-statement:
+		 *     primary-expression-list ',' primary-expression '=' expression-list ';'
+		 *   primary-expression-list:
+		 *     primary-expression
+		 *     primary-expression-list ',' primary-expression
+		 */
+		// Parse all the target expressions first, then expect '=', then check
+		// assignability. It feels like bad practice to verify each target is
+		// assignable before we have even seen an equals sign.
+
+		var targets = new List(2);
+		targets.add(firstTarget);
+		while acceptr(ref i, TokenType.comma):
+			targets.add(parsePrimaryExpression(ref i));
+
+		expectr(ref i, TokenType.assign, ErrorCode.err_ExpectedParallelAssignment);
+
+		targets.each(ensureAssignable);
+		targets = new NodeList(targets);
+
+		var values = new List(1);
+		do
+		{
+			values.add(parseExpression(ref i));
+		} while acceptr(ref i, TokenType.comma);
+		values = new NodeList(values);
+
+		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
+
+		return new ParallelAssignment(
+			getLocation(firstTarget, end),
+			targets, values
+		);
+	}
+
+	/// Summary: Parses a sequence of one or more commands from the specified file.
+	/// Param file: The {SourceFile} to parse commands from.
+	/// Returns: A List of commands (statements or expressions) found in {file}.
+	public static parse(file)
+	{
+		return parse(file, null);
+	}
+	/// Summary: Parses a sequence of one or more commands from the specified file.
+	/// Param file: The {SourceFile} to parse commands from.
+	/// Param errorManager: An instance of {ErrorManager} that receives errors and
+	///                     warnings that occur during parsing.
+	/// Returns: A List of commands (statements or expressions) found in {file}.
+	public static parse(file, errorManager)
+	{
+		var parser = new CommandParser(file, ParseFlags.none, errorManager);
+
+		var i = 0;
+		return parser.parseCommandSequence(ref i);
+	}
+
+	private static statementStartTokens = Set.fromCollection([
+		TokenType.\var,
+		TokenType.\const,
+		TokenType.\function,
+		TokenType.\for,
+		TokenType.\while,
+		TokenType.\do,
+		TokenType.\if,
+		TokenType.\break,
+		TokenType.\next,
+		TokenType.\return,
+		TokenType.\yield,
+		TokenType.\throw,
+		TokenType.\try,
+		TokenType.\with,
+		TokenType.semicolon, // empty statement
+	]);
+
+	// Copied from osprey.compiler
+	private static typeToBinaryOperator = {
+		TokenType.doubleEqual:  BinaryOperator.equality,
+		TokenType.notEqual:     BinaryOperator.inequality,
+		TokenType.\refeq:       BinaryOperator.refEquality,
+		TokenType.less:         BinaryOperator.less,
+		TokenType.greater:      BinaryOperator.greater,
+		TokenType.lessEqual:    BinaryOperator.lessEqual,
+		TokenType.greaterEqual: BinaryOperator.greaterEqual,
+		TokenType.compare:      BinaryOperator.comparison,
+		TokenType.dollar:       BinaryOperator.dollar,
+		TokenType.hash:         BinaryOperator.hash,
+		TokenType.shiftLeft:    BinaryOperator.shiftLeft,
+		TokenType.shiftRight:   BinaryOperator.shiftRight,
+		TokenType.plus:         BinaryOperator.addition,
+		TokenType.minus:        BinaryOperator.subtraction,
+		TokenType.pipe:         BinaryOperator.bitwiseOr,
+		TokenType.multiply:     BinaryOperator.multiplication,
+		TokenType.divide:       BinaryOperator.division,
+		TokenType.modulo:       BinaryOperator.modulo,
+		TokenType.ampersand:    BinaryOperator.bitwiseAnd,
+		// Compound assignment operators
+		TokenType.plusAssign:       BinaryOperator.addition,
+		TokenType.minusAssign:      BinaryOperator.subtraction,
+		TokenType.pipeAssign:       BinaryOperator.bitwiseOr,
+		TokenType.mulAssign:        BinaryOperator.multiplication,
+		TokenType.divAssign:        BinaryOperator.division,
+		TokenType.modAssign:        BinaryOperator.modulo,
+		TokenType.ampAssign:        BinaryOperator.bitwiseAnd,
+		TokenType.caretAssign:      BinaryOperator.bitwiseXor,
+		TokenType.concatAssign:     BinaryOperator.concatenation,
+		TokenType.shiftLeftAssign:  BinaryOperator.shiftLeft,
+		TokenType.shiftRightAssign: BinaryOperator.shiftRight,
+		TokenType.powerAssign:      BinaryOperator.exponentiation,
+		TokenType.hashAssign:       BinaryOperator.hash,
+		TokenType.dollarAssign:     BinaryOperator.dollar,
+	};
+}
