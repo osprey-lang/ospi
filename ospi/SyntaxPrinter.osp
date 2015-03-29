@@ -1,0 +1,139 @@
+use namespace aves;
+use namespace aves.reflection;
+use namespace osprey.compiler;
+use namespace osprey.compiler.parser;
+use namespace osprey.compiler.syntax;
+
+namespace osprey.interpreter;
+
+private static class SyntaxPrinter
+{
+	private static ignoreProperties = Set.fromCollection(["location", "parent"]);
+
+	private static printColors = [ConsoleColor.gray,       ConsoleColor.black];
+	private static fieldColors = [ConsoleColor.green,      ConsoleColor.black];
+	private static typeColors  = [ConsoleColor.darkCyan,   ConsoleColor.black];
+	private static tokenColors = [ConsoleColor.white,      ConsoleColor.black];
+	private static enumColors  = [ConsoleColor.darkYellow, ConsoleColor.black];
+	private static nullColors  = [ConsoleColor.darkGray,   ConsoleColor.black];
+
+	public static print(syntax)
+	{
+		try
+		{
+			Console.setColors -> printColors;
+			printInner(syntax, "  ");
+		}
+		finally
+		{
+			Console.resetColors();
+		}
+	}
+
+	private static printInner(syntax, indent)
+	{
+		var type = typeof(syntax);
+
+		writeTypeName(type);
+		Console.writeLine();
+
+		for property in type.getProperties(MemberSearchFlags.isPublic | MemberSearchFlags.isInstance)
+		{
+			var propName = property.name;
+			if ignoreProperties.contains(propName) or
+				not property.canRead or property.canWrite:
+				next;
+
+			Console.write(indent);
+			writeFieldName(propName);
+			Console.write(": ");
+
+			var value = property.getterMethod.invoke(syntax, null);
+			printFieldValue(value, indent);
+		}
+	}
+
+	private static printFieldValue(value, indent)
+	{
+		if value is Token
+		{
+			writeToken(value);
+			Console.writeLine();
+		}
+		else if value is Syntax
+		{
+			printInner(value, indent :: "  ");
+		}
+		else if value is SyntaxList
+		{
+			writeTypeName(typeof(value));
+			Console.writeLine("[{0}]", [value.length]);
+			indent ::= "  ";
+			for syn in value
+			{
+				Console.write(indent);
+				printFieldValue(syn, indent);
+			}
+		}
+		else if value is Enum
+		{
+			writeEnumValue(value);
+			Console.writeLine();
+		}
+		else if value is null
+		{
+			writeNull();
+			Console.writeLine();
+		}
+		else
+		{
+			Console.write(value);
+			Console.write(" (");
+			writeTypeName(typeof(value));
+			Console.writeLine(")");
+		}
+	}
+
+	private static writeFieldName(name)
+	{
+		Console.setColors -> fieldColors;
+		Console.write(name);
+		Console.setColors -> printColors;
+	}
+
+	private static writeTypeName(type)
+	{
+		Console.setColors -> typeColors;
+		Console.write(type.name);
+		Console.setColors -> printColors;
+	}
+
+	private static writeToken(token)
+	{
+		if token is Identifier
+		{
+			Console.setColors -> tokenColors;
+			Console.write(token.identifier);
+			Console.setColors -> printColors;
+		}
+		else
+		{
+			Console.write(token);
+		}
+	}
+
+	private static writeEnumValue(value)
+	{
+		var type = typeof(value);
+		Console.setColors -> enumColors;
+		Console.write(value is EnumSet ? "{0}({1})" : "{0}.{1}", [type.name, value]);
+		Console.setColors -> printColors;
+	}
+
+	private static writeNull()
+	{
+		Console.setColors -> nullColors;
+		Console.write("<null>");
+		Console.setColors -> printColors;
+	}
+}

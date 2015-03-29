@@ -1,0 +1,280 @@
+use namespace aves;
+use namespace osprey.compiler;
+use namespace osprey.compiler.parser;
+use namespace osprey.compiler.syntax;
+
+namespace osprey.interpreter;
+
+private class App
+{
+	public new()
+	{
+		errors = new InterpreterErrorManager(this);
+	}
+
+	// Stack of currently unmatched opening brackets
+	private unmatchedBrackets = new Stack(5);
+	// List of currently consumed lines
+	private lines = [];
+	// True if multiline input
+	private multiLine = false;
+	// ErrorManager for the app
+	private errors;
+
+	public run()
+	{
+		try
+		{
+			Console.setColors -> defaultColors;
+			readLines();
+		}
+		finally
+		{
+			Console.resetColors();
+		}
+	}
+
+	private readLines()
+	{
+		writePrompt();
+
+		var line;
+		while line = Console.readLine()
+		{
+			errors.clearAll();
+
+			var commandFunc;
+			if lines.isEmpty and commands.tryGet(line, ref commandFunc)
+			{
+				if commandFunc(this):
+					break;
+			}
+			else
+			{
+				lines.add(line);
+				if processLine(line):
+					execute();
+			}
+
+			writePrompt();
+		}
+	}
+
+	private processLine(line)
+	{
+		if multiLine
+		{
+			if line == "":
+				// Empty line in multi-line mode marks the end; execute the code
+				return true;
+			// Otherwise, read another line
+			return false;
+		}
+		else
+		{
+			var file = SourceFile.createAnon(line, "<stdin>");
+			var lexer = new Lexer(file);
+
+			var hasUnmatchedBrackets;
+			try
+			{
+				hasUnmatchedBrackets = findBrackets(lexer);
+			}
+			catch CompileTimeError in e
+			{
+				errors.addError(e);
+				lines.clear();
+				return false;
+			}
+
+			// If there are any unmatched brackets, we look for another line.
+			// Otherwise, we execute the expression/statement right away.
+			return not hasUnmatchedBrackets;
+		}
+	}
+
+	private findBrackets(lexer)
+	{
+		var i = 0;
+		var tok;
+		while not (tok = lexer[i]).match(TokenType.eof)
+		{
+			var type = tok.type;
+			var closingBracket;
+			if openingBrackets.tryGet(type, ref closingBracket)
+			{
+				unmatchedBrackets.push(closingBracket);
+			}
+			else if closingBrackets.contains(type)
+			{
+				if unmatchedBrackets.isEmpty or
+					unmatchedBrackets.peek() != type:
+					// Invalid closing bracket; return false to trigger execution
+					// of the expression, to get an error message from the parser
+					return false;
+
+				// Found a matching closing bracket, pop the unmatched bracket
+				// off the stack
+				unmatchedBrackets.pop();
+			}
+
+			i += 1;
+		}
+
+		// Return true if there are unmatched brackets, false otherwise
+		return not unmatchedBrackets.isEmpty;
+	}
+
+	private writePrompt()
+	{
+		Console.setColors -> promptColors;
+
+		Console.write(
+			not lines.isEmpty ?
+				promptSubsequent :
+				multiLine ?
+					promptFirstMulti :
+					promptFirstSingle
+		);
+
+		Console.setColors -> defaultColors;
+	}
+
+	private printMessage(message)
+	{
+		Console.setColors -> messageColors;
+		Console.writeLine(message);
+		Console.setColors -> defaultColors;
+	}
+	private printMessage(message, formatArg)
+	{
+		Console.setColors -> messageColors;
+		Console.writeLine(message, formatArg);
+		Console.setColors -> defaultColors;
+	}
+
+	public printError(error)
+	{
+		Console.setColors -> errorColors;
+		printErrorOrWarning(
+			errorFormat,
+			error.source,
+			error.message,
+			[error.errorCode.toString("D4")]
+		);
+	}
+
+	public printWarning(warning)
+	{
+		Console.setColors -> warningColors;
+		printErrorOrWarning(
+			warningFormat,
+			warning.source,
+			warning.message
+		);
+	}
+
+	private printErrorOrWarning(printFormat, source, message, formatArg = null)
+	{
+		var column, line;
+		var loc = source?.location;
+		if loc:
+			line = loc.getLineNumber(1, ref column);
+		else:
+			line, column = "???", "???";
+
+		if formatArg:
+			formatArg = [line, column, message] :: formatArg;
+		else:
+			formatArg = [line, column, message];
+
+		Console.writeLine(printFormat.format(formatArg));
+		Console.setColors -> defaultColors;
+	}
+
+	private execute()
+	{
+		var code = lines.join("\n");
+		lines.clear();
+		unmatchedBrackets.clear();
+
+		var file = SourceFile.createAnon(code, "<stdin>");
+		var commands;
+
+		try
+		{
+			commands = CommandParser.parse(file, errors);
+		}
+		catch CompileTimeError in e
+		{
+			errors.addError(e);
+			return;
+		}
+
+		if errors.hasErrors:
+			return;
+
+		commands.each(SyntaxPrinter.print);
+	}
+
+	private static openingBrackets = {
+		TokenType.parenOpen:      TokenType.parenClose,
+		TokenType.parenOpenSafe:  TokenType.parenClose,
+
+		TokenType.squareOpen:     TokenType.squareClose,
+		TokenType.squareOpenSafe: TokenType.squareClose,
+
+		TokenType.curlyOpen:      TokenType.curlyClose,
+	};
+	private static closingBrackets = Set.fromCollection([
+		TokenType.parenClose,
+		TokenType.squareClose,
+		TokenType.curlyClose,
+	]);
+
+	private static commands = {
+		"!multi": @app
+		{
+			app.multiLine = true;
+			app.printMessage("Switched to multi-line mode.");
+		},
+		"!single": @app
+		{
+			app.multiLine = false;
+			app.printMessage("Switched to single-line mode.");
+		},
+		"!clear": @app
+		{
+			Console.clear();
+		},
+		"!quit": @app
+		{
+			return true;
+		},
+		"!chirp": @app
+		{
+			app.printMessage("Chirp chirp!");
+		},
+	};
+
+	private static defaultColors = [ConsoleColor.gray,     ConsoleColor.black];
+	private static promptColors  = [ConsoleColor.darkCyan, ConsoleColor.black];
+	private static messageColors = [ConsoleColor.cyan,     ConsoleColor.black];
+	private static warningColors = [ConsoleColor.yellow,   ConsoleColor.black];
+	private static errorColors   = [ConsoleColor.red,      ConsoleColor.black];
+
+	static new()
+	{
+		// Define some aliases
+		commands["!m"] = commands["!multi"];
+		commands["!s"] = commands["!single"];
+		commands["!q"] = commands["!quit"];
+	}
+
+	private const promptFirstSingle = "-> ";
+	private const promptFirstMulti  = "=> ";
+	private const promptSubsequent  = ".. ";
+
+	private const errorFormat = "Error (ln {0}, col {1}): OSP{3} {2}";
+	private const warningFormat = "Warning (ln {0}, col {1}): {2}";
+}
