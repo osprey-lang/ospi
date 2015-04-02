@@ -15,4 +15,4 @@ To be written. It'll be in the wiki.
 * [osprey.compiler][ospc]
 
 
-[ospc]: https://bitbucket.org/Heurlinius/ospc
+  [ospc]: https://bitbucket.org/OspreyLang/ospc
