@@ -177,9 +177,8 @@ private class App
 	private printErrorOrWarning(printFormat, source, message, formatArg = null)
 	{
 		var column, line;
-		var loc = source?.location;
-		if loc:
-			line = loc.getLineNumber(1, ref column);
+		if source:
+			line = source.getLineNumber(1, ref column);
 		else:
 			line, column = "???", "???";
 
