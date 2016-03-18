@@ -1,6 +1,3 @@
-use osprey.compiler;
-use osprey.interpreter;
-
 use "App.osp";
 use "InterpreterErrorManager.osp";
 use "SyntaxPrinter.osp";
