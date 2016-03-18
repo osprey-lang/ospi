@@ -64,7 +64,7 @@ private class App
 	{
 		if multiLine
 		{
-			if line == "":
+			if line.isEmpty:
 				// Empty line in multi-line mode marks the end; execute the code
 				return true;
 			// Otherwise, read another line
