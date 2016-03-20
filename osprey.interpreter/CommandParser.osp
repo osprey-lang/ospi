@@ -96,7 +96,7 @@ public inheritable CommandParser is Parser
 		 *     primary-expression compound-assignment-operator expression ';'
 		 *   compound-assignment-operator: one of
 		 *     '+='  '-='   '|='   '*='   '/='   '%='  '&='
-		 *     '^='  '::='  '<<='  '>>='  '**='  '#='  '$='
+		 *     '^='  '::='  '<<='  '>>='  '**='
 		 */
 		ensureAssignable(target);
 
@@ -198,8 +198,6 @@ public inheritable CommandParser is Parser
 		TokenType.lessEqual:    BinaryOperator.lessEqual,
 		TokenType.greaterEqual: BinaryOperator.greaterEqual,
 		TokenType.compare:      BinaryOperator.comparison,
-		TokenType.dollar:       BinaryOperator.dollar,
-		TokenType.hash:         BinaryOperator.hash,
 		TokenType.shiftLeft:    BinaryOperator.shiftLeft,
 		TokenType.shiftRight:   BinaryOperator.shiftRight,
 		TokenType.plus:         BinaryOperator.addition,
@@ -222,7 +220,5 @@ public inheritable CommandParser is Parser
 		TokenType.shiftLeftAssign:  BinaryOperator.shiftLeft,
 		TokenType.shiftRightAssign: BinaryOperator.shiftRight,
 		TokenType.powerAssign:      BinaryOperator.exponentiation,
-		TokenType.hashAssign:       BinaryOperator.hash,
-		TokenType.dollarAssign:     BinaryOperator.dollar,
 	};
 }
