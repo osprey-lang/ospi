@@ -37,7 +37,7 @@ private static class SyntaxPrinter
 		writeTypeName(type);
 		Console.writeLine();
 
-		for property in type.getProperties(MemberSearchFlags.isPublic | MemberSearchFlags.isInstance)
+		for property in type.getProperties(MemberSearchFlags.\public | MemberSearchFlags.instance)
 		{
 			var propName = property.name;
 			if ignoreProperties.contains(propName) or
