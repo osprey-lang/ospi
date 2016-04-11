@@ -183,7 +183,7 @@ private class App
 			line, column = "???", "???";
 
 		if formatArg:
-			formatArg = [line, column, message] :: formatArg;
+			formatArg = [line, column, message].concat(formatArg);
 		else:
 			formatArg = [line, column, message];
 
