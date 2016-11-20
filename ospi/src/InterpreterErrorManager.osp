@@ -3,20 +3,20 @@ use osprey.compiler;
 
 namespace osprey.interpreter;
 
-private class InterpreterErrorManager is ErrorManager
+internal class InterpreterErrorManager is ErrorManager
 {
 	public new(this._app);
 
 	private _app;
 	/// Summary: Gets the {App} that this error manager belongs to.
-	public get app = _app;
+	public get app => _app;
 
 	private errors = [];
 	private warnings = [];
 
-	override get hasErrors = not errors.isEmpty;
+	override get hasErrors => not errors.isEmpty;
 
-	override get hasWarnings = not warnings.isEmpty;
+	override get hasWarnings => not warnings.isEmpty;
 
 	override addErrorInner(error)
 	{

@@ -4,7 +4,7 @@ use "SyntaxPrinter.osp";
 
 namespace osprey.interpreter;
 
-private function main(args)
+internal function main(args)
 {
 	new App().run();
 }

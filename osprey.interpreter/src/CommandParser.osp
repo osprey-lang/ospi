@@ -170,7 +170,7 @@ public inheritable CommandParser is Parser
 		return parser.parseCommandSequence(ref i);
 	}
 
-	private static statementStartTokens = Set.fromCollection([
+	private static statementStartTokens = Set.from([
 		TokenType.\var,
 		TokenType.\const,
 		TokenType.\function,

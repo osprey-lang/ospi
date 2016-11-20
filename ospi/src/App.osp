@@ -5,7 +5,7 @@ use osprey.compiler.syntax;
 
 namespace osprey.interpreter;
 
-private class App
+internal class App
 {
 	public new()
 	{
@@ -38,9 +38,11 @@ private class App
 	{
 		writePrompt();
 
-		var line;
-		while line = Console.readLine()
+		while true
 		{
+			var line = Console.readLine();
+			if line is null:
+				break;
 			errors.clearAll();
 
 			var commandFunc;
@@ -96,10 +98,9 @@ private class App
 	private findBrackets(lexer)
 	{
 		var i = 0;
-		var tok;
-		while not (tok = lexer[i]).match(TokenType.eof)
+		while not lexer[i].match(TokenType.eof)
 		{
-			var type = tok.type;
+			var type = lexer[i].type;
 			var closingBracket;
 			if openingBrackets.tryGet(type, ref closingBracket)
 			{
@@ -225,7 +226,7 @@ private class App
 
 		TokenType.curlyOpen:      TokenType.curlyClose,
 	};
-	private static closingBrackets = Set.fromCollection([
+	private static closingBrackets = Set.from([
 		TokenType.parenClose,
 		TokenType.squareClose,
 		TokenType.curlyClose,
