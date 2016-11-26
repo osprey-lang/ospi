@@ -64,15 +64,17 @@ public inheritable CommandParser is Parser
 		if accept(i, TokenType.semicolon):
 			return parseExpressionStatementCommand(ref i, expr);
 
+		if accept(i, TokenType.assign):
+			return parseSimpleAssignmentCommand(ref i, expr);
+
 		if accept(i, TokenType.compoundAssign):
 			return parseCompoundAssignmentCommand(ref i, expr);
 
 		if accept(i, TokenType.comma):
 			return parseParallelAssignmentCommand(ref i, expr);
 
-		// If it's not an expression statement, nor a compound assignment, nor
-		// a parallel assignment, it must be a "raw" expression, which must be
-		// the last command. Hence:
+		// If it's not an expression statement nor an assignment, it must be a
+		// "raw" expression, which must be the last command. Hence:
 		expect(i, TokenType.eof);
 
 		return expr;
@@ -86,6 +88,28 @@ public inheritable CommandParser is Parser
 		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
 		return new ExpressionStatement(getLocation(expr, end),
 			expr);
+	}
+
+	private parseSimpleAssignmentCommand(ref i, target)
+	{
+		// Basically copied from osprey.compiler
+		/* Syntax:
+		 *   simple-assignment-statement:
+		 *     primary-expression '=' expression ';'
+		 */
+		ensureAssignable(target);
+
+		expectr(ref i, TokenType.assign);
+
+		var value = parseExpression(ref i);
+
+		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
+
+		return new SimpleAssignment(
+			getLocation(target, end),
+			target,
+			value
+		);
 	}
 
 	private parseCompoundAssignmentCommand(ref i, target)
