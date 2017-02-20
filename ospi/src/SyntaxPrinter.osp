@@ -1,8 +1,8 @@
-use aves;
-use aves.reflection;
-use osprey.compiler;
-use osprey.compiler.parser;
-use osprey.compiler.syntax;
+use aves.*;
+use aves.reflection.*;
+use osprey.compiler.*;
+use osprey.compiler.parser.*;
+use osprey.compiler.syntax.*;
 
 namespace osprey.interpreter;
 
