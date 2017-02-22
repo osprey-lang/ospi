@@ -23,13 +23,11 @@ internal class App
 
 	public run()
 	{
-		try
-		{
+		try {
 			Console.setColors -> defaultColors;
 			readLines();
 		}
-		finally
-		{
+		finally {
 			Console.resetColors();
 		}
 	}
@@ -38,24 +36,24 @@ internal class App
 	{
 		writePrompt();
 
-		while true
-		{
+		while true {
 			var line = Console.readLine();
-			if line is null:
+			if line is null {
 				break;
+			}
 			errors.clearAll();
 
 			var commandFunc;
-			if lines.isEmpty and commands.tryGet(line, ref commandFunc)
-			{
-				if commandFunc(this):
+			if lines.isEmpty and commands.tryGet(line, ref commandFunc) {
+				if commandFunc(this) {
 					break;
+				}
 			}
-			else
-			{
+			else {
 				lines.add(line);
-				if processLine(line):
+				if processLine(line) {
 					execute();
+				}
 			}
 
 			writePrompt();
@@ -64,26 +62,23 @@ internal class App
 
 	private processLine(line)
 	{
-		if multiLine
-		{
-			if line.isEmpty:
+		if multiLine {
+			if line.isEmpty {
 				// Empty line in multi-line mode marks the end; execute the code
 				return true;
+			}
 			// Otherwise, read another line
 			return false;
 		}
-		else
-		{
+		else {
 			var file = SourceFile.createAnon(line, "<stdin>");
 			var lexer = new Lexer(file);
 
 			var hasUnmatchedBrackets;
-			try
-			{
+			try {
 				hasUnmatchedBrackets = findBrackets(lexer);
 			}
-			catch CompileTimeError in e
-			{
+			catch CompileTimeError in e {
 				errors.addError(e);
 				lines.clear();
 				return false;
@@ -98,21 +93,20 @@ internal class App
 	private findBrackets(lexer)
 	{
 		var i = 0;
-		while not lexer[i].match(TokenType.eof)
-		{
+		while not lexer[i].match(TokenType.eof) {
 			var type = lexer[i].type;
 			var closingBracket;
-			if openingBrackets.tryGet(type, ref closingBracket)
-			{
+			if openingBrackets.tryGet(type, ref closingBracket) {
 				unmatchedBrackets.push(closingBracket);
 			}
-			else if closingBrackets.contains(type)
-			{
+			else if closingBrackets.contains(type) {
 				if unmatchedBrackets.isEmpty or
-					unmatchedBrackets.peek() != type:
+					unmatchedBrackets.peek() != type
+				{
 					// Invalid closing bracket; return false to trigger execution
 					// of the expression, to get an error message from the parser
 					return false;
+				}
 
 				// Found a matching closing bracket, pop the unmatched bracket
 				// off the stack
@@ -178,15 +172,19 @@ internal class App
 	private printErrorOrWarning(printFormat, source, message, formatArg = null)
 	{
 		var column, line;
-		if source:
+		if source {
 			line = source.getLineNumber(1, ref column);
-		else:
+		}
+		else {
 			line, column = "???", "???";
+		}
 
-		if formatArg:
+		if formatArg {
 			formatArg = [line, column, message].concat(formatArg);
-		else:
+		}
+		else {
 			formatArg = [line, column, message];
+		}
 
 		Console.writeLine(printFormat.format(formatArg));
 		Console.setColors -> defaultColors;
@@ -201,18 +199,17 @@ internal class App
 		var file = SourceFile.createAnon(code, "<stdin>");
 		var commands;
 
-		try
-		{
+		try {
 			commands = CommandParser.parse(file, errors);
 		}
-		catch CompileTimeError in e
-		{
+		catch CompileTimeError in e {
 			errors.addError(e);
 			return;
 		}
 
-		if errors.hasErrors:
+		if errors.hasErrors {
 			return;
+		}
 
 		commands.each(SyntaxPrinter.print);
 	}
@@ -233,26 +230,21 @@ internal class App
 	]);
 
 	private static commands = {
-		"!multi": @app
-		{
+		"!multi": @app {
 			app.multiLine = true;
 			app.printMessage("Switched to multi-line mode.");
 		},
-		"!single": @app
-		{
+		"!single": @app {
 			app.multiLine = false;
 			app.printMessage("Switched to single-line mode.");
 		},
-		"!clear": @app
-		{
+		"!clear": @app {
 			Console.clear();
 		},
-		"!quit": @app
-		{
+		"!quit": @app {
 			return true;
 		},
-		"!chirp": @app
-		{
+		"!chirp": @app {
 			app.printMessage("Chirp chirp!");
 		},
 	};

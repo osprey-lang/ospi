@@ -19,13 +19,11 @@ internal static class SyntaxPrinter
 
 	public static print(syntax)
 	{
-		try
-		{
+		try {
 			Console.setColors -> printColors;
 			printInner(syntax, "  ");
 		}
-		finally
-		{
+		finally {
 			Console.resetColors();
 		}
 	}
@@ -37,12 +35,13 @@ internal static class SyntaxPrinter
 		writeTypeName(type);
 		Console.writeLine();
 
-		for property in type.getProperties(MemberSearchFlags.\public | MemberSearchFlags.instance)
-		{
+		for property in type.getProperties(MemberSearchFlags.\public | MemberSearchFlags.instance) {
 			var propName = property.name;
 			if ignoreProperties.contains(propName) or
-				not property.canRead or property.canWrite:
+				not property.canRead or property.canWrite
+			{
 				next;
+			}
 
 			Console.write(indent);
 			writeFieldName(propName);
@@ -55,38 +54,31 @@ internal static class SyntaxPrinter
 
 	private static printFieldValue(value, indent)
 	{
-		if value is Token
-		{
+		if value is Token {
 			writeToken(value);
 			Console.writeLine();
 		}
-		else if value is Syntax
-		{
+		else if value is Syntax {
 			printInner(value, indent :: "  ");
 		}
-		else if value is SyntaxList
-		{
+		else if value is SyntaxList {
 			writeTypeName(typeof(value));
 			Console.writeLine("[{0}]", [value.length]);
 			indent ::= "  ";
-			for syn in value
-			{
+			for syn in value {
 				Console.write(indent);
 				printFieldValue(syn, indent);
 			}
 		}
-		else if value is Enum
-		{
+		else if value is Enum {
 			writeEnumValue(value);
 			Console.writeLine();
 		}
-		else if value is null
-		{
+		else if value is null {
 			writeNull();
 			Console.writeLine();
 		}
-		else
-		{
+		else {
 			Console.write(value);
 			Console.write(" (");
 			writeTypeName(typeof(value));
@@ -110,14 +102,12 @@ internal static class SyntaxPrinter
 
 	private static writeToken(token)
 	{
-		if token is Identifier
-		{
+		if token is Identifier {
 			Console.setColors -> tokenColors;
 			Console.write(token.identifier);
 			Console.setColors -> printColors;
 		}
-		else
-		{
+		else {
 			Console.write(token);
 		}
 	}

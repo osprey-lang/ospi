@@ -28,8 +28,9 @@ public inheritable CommandParser is Parser
 	public parseCommandSequence(ref i)
 	{
 		var commands = [];
-		while not accept(i, TokenType.eof):
+		while not accept(i, TokenType.eof) {
 			commands.add(parseCommand(ref i));
+		}
 
 		expect(i, TokenType.eof);
 
@@ -48,8 +49,10 @@ public inheritable CommandParser is Parser
 		// command is unambiguously a statement.
 		if statementStartTokens.contains(tok.type) or
 			tok.match(TokenType.identifier) and accept(i + 1, TokenType.colon) or
-			tok.match(TokenType.\new) and accept(i + 1, TokenType.\this, TokenType.\base):
+			tok.match(TokenType.\new) and accept(i + 1, TokenType.\this, TokenType.\base)
+		{
 			return parseStatement(ref i);
+		}
 
 		// Okay, so it's not /unambiguously/ a statement. It might still be an
 		// assignment statement, which always begins with an expression, or it
@@ -61,17 +64,18 @@ public inheritable CommandParser is Parser
 	{
 		var expr = parseExpression(ref i);
 
-		if accept(i, TokenType.semicolon):
+		if accept(i, TokenType.semicolon) {
 			return parseExpressionStatementCommand(ref i, expr);
-
-		if accept(i, TokenType.assign):
+		}
+		if accept(i, TokenType.assign) {
 			return parseSimpleAssignmentCommand(ref i, expr);
-
-		if accept(i, TokenType.compoundAssign):
+		}
+		if accept(i, TokenType.compoundAssign) {
 			return parseCompoundAssignmentCommand(ref i, expr);
-
-		if accept(i, TokenType.comma):
+		}
+		if accept(i, TokenType.comma) {
 			return parseParallelAssignmentCommand(ref i, expr);
+		}
 
 		// If it's not an expression statement nor an assignment, it must be a
 		// "raw" expression, which must be the last command. Hence:
@@ -82,12 +86,15 @@ public inheritable CommandParser is Parser
 
 	private parseExpressionStatementCommand(ref i, expr)
 	{
-		if not isStatementExpression(expr):
+		if not isStatementExpression(expr) {
 			recoverableError(expr, ErrorCode.err_InvalidStatementExpression);
+		}
 
 		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
-		return new ExpressionStatement(getLocation(expr, end),
-			expr);
+		return new ExpressionStatement(
+			getLocation(expr, end),
+			expr
+		);
 	}
 
 	private parseSimpleAssignmentCommand(ref i, target)
@@ -131,8 +138,12 @@ public inheritable CommandParser is Parser
 
 		var end = expectr(ref i, TokenType.semicolon, ErrorCode.err_ExpectedStatementTerminator);
 
-		return new CompoundAssignment(getLocation(target, end),
-			target, op, value);
+		return new CompoundAssignment(
+			getLocation(target, end),
+			target,
+			op,
+			value
+		);
 	}
 
 	private parseParallelAssignmentCommand(ref i, firstTarget)
@@ -151,8 +162,9 @@ public inheritable CommandParser is Parser
 
 		var targets = new List(2);
 		targets.add(firstTarget);
-		while acceptr(ref i, TokenType.comma):
+		while acceptr(ref i, TokenType.comma) {
 			targets.add(parsePrimaryExpression(ref i));
+		}
 
 		expectr(ref i, TokenType.assign, ErrorCode.err_ExpectedParallelAssignment);
 
@@ -160,8 +172,7 @@ public inheritable CommandParser is Parser
 		targets = new NodeList(targets);
 
 		var values = new List(1);
-		do
-		{
+		do {
 			values.add(parseExpression(ref i));
 		} while acceptr(ref i, TokenType.comma);
 		values = new NodeList(values);
@@ -170,7 +181,8 @@ public inheritable CommandParser is Parser
 
 		return new ParallelAssignment(
 			getLocation(firstTarget, end),
-			targets, values
+			targets,
+			values
 		);
 	}
 
