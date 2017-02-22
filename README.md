@@ -1,3 +1,5 @@
+> **NOTE: This repo is basically _abandoned_ until [ospc][] becomes significantly more capable.** The project may not even compile, that's how abandonware it is.
+
 # Osprey interpreter – in Osprey!
 
 The `ospi` project is an attempt at writing an Osprey interpreter, in Osprey. The module is pretty barebones at the moment (it doesn't even interpret Osprey code!), so there isn't really much more to say.
